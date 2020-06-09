@@ -28,6 +28,11 @@ Run:
 sudo mkdir /var/www/.sanskrit_parser
 sudo chmod a+rwx /var/www/.sanskrit_parser
 ```
+### Deploying Docker
+```sh
+$> docker build --tag sanskrit-parser:1.0 .
+$> docker run --publish 9000:80 --detach --name sanskrit-parser sanskrit-parser:1.0
+```
 
 ## Contribution
 - Generate docs: `cd docs; make html`

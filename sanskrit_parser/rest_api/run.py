@@ -2,6 +2,8 @@
 
 # This web app may be run in two modes. See bottom of the file.
 
+from sanskrit_parser.rest_api import api_v1
+from sanskrit_parser.rest_api.flask_helper import app
 import logging
 import os.path
 import sys
@@ -10,10 +12,6 @@ from logging.handlers import RotatingFileHandler
 # Add parent directory to PYTHONPATH, so that sanskrit_parser module can be found.
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 logging.debug(sys.path)
-
-
-from sanskrit_parser.rest_api.flask_helper import app
-from sanskrit_parser.rest_api import api_v1
 
 LOG_FILENAME = "SanskritParserApi.log"
 LOG_FORMAT = "%(levelname)s: %(asctime)s {%(filename)s:%(lineno)d}: %(message)s "
@@ -44,10 +42,10 @@ def setup_app():
 def main(argv):
     setup_app()
     app.run(
-      host="0.0.0.0",
-      debug=False,
-      port=params["port"],
-      use_reloader=False
+        host="0.0.0.0",
+        debug=False,
+        port=params["port"],
+        use_reloader=False
     )
 
 
