@@ -14,6 +14,7 @@ api_blueprint = Blueprint(
     'sanskrit_parser', __name__,
     template_folder='templates'
 )
+strict_io = True
 
 api = flask_restx.Api(app=api_blueprint, version='1.0', title='sanskrit_parser API',
                       description='For detailed intro and to report issues: see <a href="https://github.com/kmadathil/sanskrit_parser">here</a>. '
@@ -51,7 +52,7 @@ def jtags(tags):
 class Tags(Resource):
     def get(self, p):
         """ Get lexical tags for p """
-        pobj = SanskritObject(p, strict_io=False)
+        pobj = SanskritObject(p, strict_io=strict_io)
         tags = analyzer.getMorphologicalTags(pobj)
         if tags is not None:
             ptags = jtags(tags)
@@ -65,11 +66,11 @@ class Tags(Resource):
 class Splits(Resource):
     def get(self, v):
         """ Get lexical tags for v """
-        vobj = SanskritObject(v, strict_io=False, replace_ending_visarga=None)
+        vobj = SanskritObject(v, strict_io=strict_io, replace_ending_visarga=None)
         g = analyzer.getSandhiSplits(vobj)
         if g:
             splits = g.find_all_paths(10)
-            jsplits = [[ss.devanagari(strict_io=False) for ss in s] for s in splits]
+            jsplits = [[ss.devanagari(strict_io=strict_io) for ss in s] for s in splits]
         else:
             jsplits = []
         r = {"input": v, "devanagari": vobj.devanagari(), "splits": jsplits}
@@ -80,7 +81,7 @@ class Splits(Resource):
 class Morpho(Resource):
     def get(self, v):
         """ Get morphological tags for v """
-        vobj = SanskritObject(v, strict_io=False, replace_ending_visarga=None)
+        vobj = SanskritObject(v, strict_io=strict_io, replace_ending_visarga=None)
         g = analyzer.getSandhiSplits(vobj, tag=True)
         if g:
             splits = g.find_all_paths(10, score=True)
