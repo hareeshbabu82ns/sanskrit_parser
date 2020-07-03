@@ -2,12 +2,12 @@
 
 # This web app may be run in two modes. See bottom of the file.
 
-from sanskrit_parser.rest_api import api_v1
-from sanskrit_parser.rest_api.flask_helper import app
 import logging
 import os.path
 import sys
 from logging.handlers import RotatingFileHandler
+from sanskrit_parser.rest_api import api_v1
+from sanskrit_parser.rest_api.flask_helper import app
 
 # Add parent directory to PYTHONPATH, so that sanskrit_parser module can be found.
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))

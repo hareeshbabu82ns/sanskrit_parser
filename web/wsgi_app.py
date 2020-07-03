@@ -1,9 +1,9 @@
-from sanskrit_parser.rest_api import run
 import logging
 import os
 import sys
 
 from werkzeug.debug import DebuggedApplication
+from sanskrit_parser.rest_api import run
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -17,7 +17,7 @@ logging.info("My path is " + app_path)
 sys.path.insert(0, app_path)
 sys.stdout = sys.stderr
 
-application = run.app
+# application = run.app
 
 # enable bellow for debugging app
-# application = DebuggedApplication(run.app, True)
+application = DebuggedApplication(run.app, True)
