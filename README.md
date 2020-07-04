@@ -33,6 +33,11 @@ sudo chmod a+rwx /var/www/.sanskrit_parser
 $> docker build --tag sanskrit-parser:1.0 .
 $> docker run --publish 9000:80 --detach --name sanskrit-parser sanskrit-parser:1.0
 ```
+### Deploying Docker (only API)
+```sh
+$> docker build -f Dockerfile.api --tag sanskrit-parser:1.0 .
+$> docker run --publish 9000:9000 --detach --name sanskrit-parser sanskrit-parser:1.0
+```
 
 ## Contribution
 - Generate docs: `cd docs; make html`
