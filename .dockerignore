@@ -3,3 +3,9 @@ venv
 **/__pycache__
 web/src
 web/public
+.ipynb_checkpoints
+.pytest_cache
+docs
+metrics
+tests
+sanskrit_parser.tar
