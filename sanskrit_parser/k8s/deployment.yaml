@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sanskrit-parser-api
+  namespace: default
+  labels:
+    app: sanskrit-parser-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sanskrit-parser-api
+  template:
+    metadata:
+      labels:
+        app: sanskrit-parser-api
+    spec:
+      containers:
+        - name: sanskrit-parser-api
+          image: docker.{{server_domain}}/home/sanskrit-parser-api:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          env:
+            - name: NODE_ENV
+              value: PROD
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sanskrit-parser-api
+  namespace: default
+spec:
+  ports:
+  - protocol: TCP
+    port: 9000
+    targetPort: 9000
+  selector:
+    app: sanskrit-parser-api
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sanskrit-parser-api-ingress
+  annotations:
+  namespace: default
+spec:
+  rules:
+  - host: sanskrit-parser-api.{{cluster_domain}}
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: sanskrit-parser-api
+            port: 
+              number: 9000
