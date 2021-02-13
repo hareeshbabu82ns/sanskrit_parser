@@ -28,7 +28,7 @@ steps:
       from_secret: server_domain
   commands:
     - docker login -p $DPASS -u $DUSER docker.$SERVER_DOMAIN
-    - docker build --no-cache -t docker.$SERVER_DOMAIN/home/sanskrit-parser-api:latest -f Dockerfile .
+    - docker build --no-cache -t docker.$SERVER_DOMAIN/home/sanskrit-parser-api:latest -f Dockerfile.api .
     - docker push docker.$SERVER_DOMAIN/home/sanskrit-parser-api:latest
   when:
     branch:
