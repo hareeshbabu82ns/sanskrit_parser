@@ -128,7 +128,13 @@ class Joins(Resource):
 class Morpho(Resource):
     def get(self, v):
         """ Get morphological tags for v """
+
+
+<< << << < HEAD
         vobj = SanskritObject(v, strict_io=strict_io, replace_ending_visarga=None)
+== == == =
+        vobj = SanskritObject(v, strict_io=True, replace_ending_visarga=None)
+>>>>>> > upstream/master
         g = analyzer.getSandhiSplits(vobj, tag=True)
         if g:
             splits = g.find_all_paths(10, score=True)
@@ -149,7 +155,7 @@ class Morpho(Resource):
                     preds = list(p.predecessors(n))
                     if preds:
                         pred = preds[0]  # Only one
-                        lbl = p.edges[pred, n]['label']
+                        lbl = list(p[pred][n].values())[0]['label']
                         t.append(jedge(pred, n, lbl))
                     else:
                         t.append(jnode(n))

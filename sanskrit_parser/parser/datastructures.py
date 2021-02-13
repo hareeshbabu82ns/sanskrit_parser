@@ -8,7 +8,7 @@
 
 from sanskrit_parser.base.sanskrit_base import SanskritObject, SanskritImmutableString, SLP1
 import networkx as nx
-from itertools import islice
+from itertools import islice, product
 import logging
 import operator
 from copy import copy
@@ -217,7 +217,7 @@ vibhaktis = set(_vibhaktis)
 vacanas = set(['ekavacanam', 'dvivacanam', 'bahuvacanam'])
 # Puruzas
 puruzas = 'praTamapuruzaH', 'maDyamapuruzaH', 'uttamapuruzaH'
-karakas = set(['kartA', 'karma', 'karaRam', 'apAdAnam', 'sampradAnam', 'aDikaraRam','hetu-kartA'])
+karakas = set(['kartA', 'karma', 'karaRam', 'apAdAnam', 'sampradAnam', 'aDikaraRam', 'hetu-kartA'])
 predicative_verbs = set(['as', 'BU', 'vft'])
 _lingas = ['puMlliNgam', 'napuMsakaliNgam', 'strIliNgam', 'triliNgam']
 lingas = set(_lingas)
@@ -226,19 +226,29 @@ napumsakam = _lingas[1]
 avyaya = set(['avyayam'])
 kriyavisheshana = set(['kriyAviSezaRam'])
 nishedha = set(['na'])
-karmap_2 = set(['anu', 'upa',  'prati', 'aBi', 'aDi', 'ati'])
-karmap_5 = set(['apa', 'pari', 'A', 'prati'])
 # FIXME - api and su (pUjAyaM) in here temporarily - need a better solution
 karmap_null = set(['su', 'api'])
 avyaya_kriyav = set(['kila', 'bata', 'aho', 'nanu', 'hanta', 'eva', 'tu'])
 projlabels = karakas.union(kriyavisheshana)
 # sambaddha links are projective
-samplabels = {'sambadDa-'+l for l in projlabels}.union({'saMbadDakriyA'})
+samplabels = {'sambadDa-'+lbl for lbl in projlabels}.union({'saMbadDakriyA'})
 projlabels.update(samplabels)
 sentence_conjunctions = {"yad": "tad", "yadi": "tarhi", "yatra": "tatra",
+                         "yAvat": "tAvat",
                          "yaTA": "taTA", "api": None, "cet": None, "yat": None,
                          "natu": None, "ca": None}
 conjunctions = set(sentence_conjunctions.keys())
+
+# Non Karaka Vibhakti
+non_karaka_vibhaktis = {
+    2: ["antarA", "antareRa", "pfTak", "vinA", "nAnA"],
+    3: ["saha", "pfTak", "vinA", "nAnA"],
+    4: ["namaH", "svasti", "svAhA", "alam", "vazaw"],
+    5: ["anya", "Arat", "itara", "fte", "pfTak", "vinA", "nAnA"],
+}
+# FIXME Merge these with above
+karmap_2 = set(['anu', 'upa',  'prati', 'aBi', 'aDi', 'ati'])
+karmap_5 = set(['apa', 'pari', 'A', 'prati'])
 
 # Edge costs used for ordering
 edge_cost = defaultdict(lambda: 1)
@@ -246,6 +256,7 @@ for k in karakas:
     edge_cost[k] = 0.9
 edge_cost['karma'] = 0.85
 edge_cost['kartA'] = 0.8
+edge_cost['samasta'] = 0.5
 
 
 class VakyaGraph(object):
@@ -265,8 +276,8 @@ class VakyaGraph(object):
         self.fast_merge = fast_merge
         self.roots = []
         self.isLocked = False
-#        self.G = nx.MultDiGraph() # Allow parallel edges
-        self.G = nx.DiGraph()
+        # Multigraph
+        self.G = nx.MultiDiGraph()  # Allow parallel edges
         # Need this many nodes in the extracted subgraphs
         self.path_node_count = len(path)
         logger.debug(f"{self.path_node_count} sets of orthogonal nodes")
@@ -341,6 +352,7 @@ class VakyaGraph(object):
         self.add_kriya_kriya(laks, krts)
         self.add_avyayas(bases)
         self.add_bhavalakshana(krts, laks)
+        self.add_non_karaka_vibhaktis()
         self.add_vipsa()
         self.add_sentence_conjunctions(laks, krts)
 
@@ -421,43 +433,55 @@ class VakyaGraph(object):
                 dh = dh[:hpos]
             if d.node_is_a(lakaras) or d.node_is_a('avyayaDAturUpa'):
                 is_sak = dw.is_sakarmaka(dh)
+                is_dvik = dw.is_dvikarmaka(dh)
             else:
                 is_sak = True  # No way of knowing, set True
-            logger.debug(f"Dhatu: {dh} Sakarmaka {is_sak}")
+                is_dvik = False
+            logger.debug(f"Dhatu: {dh} Sakarmaka {is_sak} Dvikarmaka {is_dvik}")
             if d.node_is_a(karmani):
                 logger.debug("Karmani")
-                karta = tritiya
-                karma = prathama
             else:
                 logger.debug("Kartari")
                 if d.node_is_a(nijanta):
                     logger.info("Nijanta Dhatu")
-                    karta = tritiya
-                else:
-                    karta = prathama
-                karma = dvitiya
             for n in self.G:
                 if not _is_same_partition(d, n):
-                    if n.node_is_a(karta):
-                        # Only Lakaras and karmani krts are allowed kartA
-                        if d.node_is_a(lakaras):
-                            if match_purusha_vacana(d, n):
-                                logger.debug(f"Adding kartA edge to {n}")
-                                self.G.add_edge(d, n, label="kartA")
-                            elif dh in predicative_verbs:
-                                logger.debug(f"Adding kartfsamAnADikaraRa edge to {n}")
-                                self.G.add_edge(d, n, label="kartfsamAnADikaraRa")
-                        elif d.node_is_a(karmani) and match_linga_vacana(d, n):
+                    if d.node_is_a(karmani):
+                        if n.node_is_a(tritiya):
+                            if d.node_is_a(nijanta):
+                                logger.debug(f"Adding hetu-kartA edge to {n}")
+                                self.G.add_edge(d, n, label="hetu-kartA")
                             logger.debug(f"Adding kartA edge to {n}")
                             self.G.add_edge(d, n, label="kartA")
-                    elif (n.node_is_a(karma) and
-                          (d.node_is_a(lakaras) or not d.node_is_a(karmani))
-                          and is_sak):
-                        # Likewise, only Lakaras and kartari krts are allowed
-                        # Karma
-                        logger.debug(f"Adding karma edge to {n}")
-                        self.G.add_edge(d, n, label="karma")
-                    elif n.node_is_a(tritiya):
+                        elif (n.node_is_a(prathama) and match_purusha_vacana(d, n)
+                              and d.node_is_a(lakaras) and is_sak):
+                            # Only Lakaras and kartari krts are allowed
+                            # Karma
+                            logger.debug(f"Adding karma edge to {n}")
+                            self.G.add_edge(d, n, label="karma")
+                            if is_dvik:
+                                logger.debug(f"Adding gauRakarma edge to {n}")
+                                self.G.add_edge(d, n, label="gauRa-karma")
+                    else:
+                        if n.node_is_a(prathama) and d.node_is_a(lakaras) and match_purusha_vacana(d, n):
+                            if d.node_is_a(nijanta):
+                                logger.debug(f"Adding hetu-kartA edge to {n}")
+                                self.G.add_edge(d, n, label="hetu-kartA")
+                            else:
+                                logger.debug(f"Adding kartA edge to {n}")
+                                self.G.add_edge(d, n, label="kartA")
+                        elif n.node_is_a(tritiya) and d.node_is_a(nijanta):
+                            logger.debug(f"Adding kartA edge to {n}")
+                            self.G.add_edge(d, n, label="kartA")
+                        elif (n.node_is_a(dvitiya) and is_sak):
+                            # Lakaras and Kartari krts are allowed
+                            # Karma
+                            logger.debug(f"Adding karma edge to {n}")
+                            self.G.add_edge(d, n, label="karma")
+                            if is_dvik:
+                                logger.debug(f"Adding gauRakarma edge to {n}")
+                                self.G.add_edge(d, n, label="gauRa-karma")
+                    if n.node_is_a(tritiya):
                         logger.debug(f"Adding karana edge to {n}")
                         self.G.add_edge(d, n, label="karaRam")
                     elif n.node_is_a(chaturthi):
@@ -472,9 +496,6 @@ class VakyaGraph(object):
                     elif n.node_is_a(sambodhana) and check_sambodhya(d, n):
                         logger.debug(f"Adding sambodhya edge to {n}")
                         self.G.add_edge(d, n, label="samboDyam")
-                    elif n.node_is_a(prathama) and d.node_is_a(nijanta):
-                        logger.debug(f"Adding hetu-kartA edge to {n}")
-                        self.G.add_edge(d, n, label="hetu-kartA")
 
     def add_kriyavisheshana(self, bases):
         ''' Add kriyaviSezaRa edges from base node (dhatu) base '''
@@ -498,7 +519,7 @@ class VakyaGraph(object):
                     elif n.node_is_a('tumun'):
                         logger.debug(f"Adding prayojanam edge to {n}")
                         self.G.add_edge(d, n, label="prayojanam")
-                    elif n.node_is_a(samanakala) and n.node_is_a(prathama):
+                    elif n.node_is_a(samanakala) and n.node_is_a(prathama) and match_purusha_vacana(d, n):
                         logger.debug(f"Adding samAnakAlaH edge to {n}")
                         self.G.add_edge(d, n, label="samAnakAlaH")
 
@@ -526,26 +547,46 @@ class VakyaGraph(object):
                 elif n.node_is_a('karmapravacanIyaH') and not (_get_base(n) in avyaya_kriyav) and not(_get_base(n) in karmap_null):
                     for b in bases:
                         if not _is_same_partition(n, b):
-                            logger.debug(f"Adding karmapravacaniya karma edge: {n, b}")
-                            self.G.add_edge(b, n, label="karma")
-                    nextset = self.partitions[i+1]
-                    prevset = self.partitions[i-1]
+                            logger.debug(f"Adding karmapravacaniya edge: {n, b}")
+                            self.G.add_edge(b, n, label="karmapravacanIyaH")
+                    if i < (len(self.partitions)-1):
+                        nextset = self.partitions[i+1]
+                    else:
+                        nextset = set([])
+                    if i > 0:
+                        prevset = self.partitions[i-1]
+                    else:
+                        prevset = set([])
                     for nn in nextset.union(prevset):
                         if nn.node_is_a(dvitiya) and (_get_base(n) in karmap_2):
                             logger.debug(f"Adding karmapravacaniya upapada 2 edge: {n,nn}")
-                            self.G.add_edge(n, nn, label="upapadadvitIya")
+                            self.G.add_edge(n, nn, label="upapada-dvitIyA")
                         elif nn.node_is_a(pancami) and (_get_base(n) in karmap_5):
                             logger.debug(f"Adding karmapravacaniya upapada 5 edge: {n,nn}")
-                            self.G.add_edge(n, nn, label="upapadapancami")
+                            self.G.add_edge(n, nn, label="upapada-pancamI")
 
     def add_bhavalakshana(self, krts, laks):
         ''' Add bhavalakshana edges from saptami krts to lakaras '''
         for k in krts:
             if k.node_is_a(saptami):
-                for l in laks:
-                    if not _is_same_partition(k, l):
-                        logger.debug(f"Adding Bhavalakshana edge: {k, l}")
-                        self.G.add_edge(l, k, label="BAvalakzaRam")
+                for lak in laks:
+                    if not _is_same_partition(k, lak):
+                        logger.debug(f"Adding Bhavalakshana edge: {k, lak}")
+                        self.G.add_edge(lak, k, label="BAvalakzaRam")
+
+    def add_non_karaka_vibhaktis(self):
+        ''' Add Non-Karaka Vibhaktis '''
+        for n in self.G:
+            nb = _get_base(n)
+            for ix in range(7):
+                if (ix+1 in non_karaka_vibhaktis) and \
+                   (nb in non_karaka_vibhaktis[ix+1]):
+                    for nn in self.G:
+                        vlabel = ("upapada-"+_vibhaktis[ix]).replace("viBakti", "")
+                        if nn.node_is_a(_vibhaktis[ix]) and \
+                           (not _is_same_partition(nn, n)):
+                            logger.debug(f"Adding {vlabel} edge {nn, n}")
+                            self.G.add_edge(n, nn, label=vlabel)
 
     def add_sentence_conjunctions(self, laks, krts):
         ''' Add sentence conjunction links
@@ -558,9 +599,11 @@ class VakyaGraph(object):
         if associated t* doesn't exist vAkyasambanDaH links from verbs
         '''
         def _is_vipsa(n):
-            for p, d in self.G.pred[n].items():
-                if d['label'] == 'vIpsA':
-                    return True
+            for p, kd in self.G.pred[n].items():
+                # Multigraph
+                for k, d in kd.items():
+                    if d['label'] == 'vIpsA':
+                        return True
             return False
         # Only prathama krts are needed here. The rest aren't relevant
         bases = []
@@ -572,17 +615,18 @@ class VakyaGraph(object):
             if nb in sentence_conjunctions_y:
                 if not _is_vipsa(n):
                     # Reverse edges, add sambadDa label
-                    for p, d in list(self.G.pred[n].items()):
-                        self.G.remove_edge(p, n)
-                        self.G.add_edge(n, p, label='sambadDa-'+d['label'])
+                    for p, kd in list(self.G.pred[n].items()):
+                        for k, d in list(kd.items()):
+                            self.G.remove_edge(p, n)
+                            self.G.add_edge(n, p, label='sambadDa-'+d['label'])
                     # Matching pair
                     s_t = sentence_conjunctions[nb]
                     for nn in self.G:
-                        if (not _is_vipsa(nn)) and _get_base(nn) == s_t:
+                        if (not _is_vipsa(nn)) and (_get_base(nn) == s_t) and (not _is_same_partition(n, nn)):
                             if match_linga_vacana(n, nn):
                                 logger.info(f"Adding vAkyasambanDaH edge: {nn, n}")
                                 self.G.add_edge(nn, n, label="vAkyasambanDaH")
-                        if n.node_is_a('saMyojakaH') and (nn in bases):
+                        if n.node_is_a('saMyojakaH') and (nn in bases) and (not _is_same_partition(n, nn)):
                             logger.info(f"Adding saMbadDakriyA edge: {nn, n}")
                             self.G.add_edge(n, nn, label='saMbadDakriyA')
                             if s_t is None:
@@ -630,7 +674,7 @@ class VakyaGraph(object):
                                     store_parses.add(psc)
                     partial_parses.difference_update(small_parses)
                     partial_parses.update(store_parses)
-                logger.debug(f"Partial Parses")
+                logger.debug("Partial Parses")
                 for p in partial_parses:
                     logger.debug(p)
             return partial_parses
@@ -667,7 +711,8 @@ class VakyaGraph(object):
 
         partial_parses = _dc(0, self.path_node_count)
         logger.debug(f"Partial Parses Before Return {partial_parses}")
-        return set([self.G.edge_subgraph(p.edges) for p in partial_parses])
+        # Multigraph
+        return set([self.G.edge_subgraph(m) for p in partial_parses for m in multiedgesets(p, self.G)])
 
     def check_parse_validity(self):
         ''' Validity Check for parses
@@ -754,6 +799,7 @@ class VakyaGraphNode(object):
         ''' Get Node puruza '''
         return self.getNodeTagset().intersection(puruzas)
 
+    # FIXME: not needed?
     def get_node_pos(self, node):
         return self.path.index(node.pada.canonical())
 
@@ -829,10 +875,10 @@ class VakyaParse(object):
             self.connections.union(pred, node)
         logger.debug(f"Edges {self.edges}")
 
-    def can_merge(self, other, l):
+    def can_merge(self, other, length):
         ''' Can we merge two VakyaParses '''
         # Proper length
-        if (len(other.edges) + len(self.edges)) < l:
+        if (len(other.edges) + len(self.edges)) < length:
             return False
         # No extinguished nodes
         for x in other.activenodes:
@@ -858,10 +904,10 @@ class VakyaParse(object):
             t.connections.union(u, v)
         return t
 
-    def merge_s(self, other, l):
+    def merge_s(self, other, length):
         ''' Merge two VakyaParses: Slow method '''
         # Proper length
-        if (len(other.edges) + len(self.edges)) < l:
+        if (len(other.edges) + len(self.edges)) < length:
             return False
         t = self.copy()
         for (u, v) in other.edges:
@@ -965,6 +1011,7 @@ def _order_parses(pu):
     # Sigma abs(n1-n2)
     def _parse_cost(parse):
         w = 0
+        # Multigraph (keys=False)
         for (u, v, l) in parse.edges(data='label'):
             # Abs Edge length times edge_type cost
             _w = abs(u.index - v.index) * edge_cost[l]
@@ -972,7 +1019,7 @@ def _order_parses(pu):
                 # Lakaras are preferred
                 _w = 0.9 * _w
             w = w + _w
-        return w
+        return round(w, 3)
     t = sorted(pu, key=_parse_cost)
     return t, [_parse_cost(te) for te in t]
 
@@ -989,6 +1036,7 @@ def _check_parse(parse):
     sk = defaultdict(int)
     vsmbd = {}
     conj = defaultdict(lambda: {"from": 0, "to": 0})
+    # Multigraph (keys=False)
     for (u, v, l) in parse.edges(data='label'):
         if l in karakas:
             count[u][l] = count[u][l]+1
@@ -1033,6 +1081,7 @@ def _check_parse(parse):
             return False
     # Vakyasambabdha nodes - yadi/tarhi yatra/tatra etc cannot have links
     # beyond their partner
+    # Multigraph (keys=False)
     for (u, v, l) in parse.edges(data='label'):
         if u.index in vsmbd:
             if ((vsmbd[u.index] > u.index) and (v.index > vsmbd[u.index])) or \
@@ -1050,3 +1099,11 @@ def _check_parse(parse):
             logger.info(f"Samyojaka violation for {u.index} {conj[u]}")
             return False
     return r
+
+
+# Multigraph
+def multiedgesets(p, G):
+    medges = []
+    for e in p.edges:
+        medges.append([(e[0], e[1], k) for k in G[e[0]][e[1]]])
+    return [list(x) for x in product(*medges)]
