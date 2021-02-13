@@ -129,12 +129,7 @@ class Morpho(Resource):
     def get(self, v):
         """ Get morphological tags for v """
 
-
-<< << << < HEAD
         vobj = SanskritObject(v, strict_io=strict_io, replace_ending_visarga=None)
-== == == =
-        vobj = SanskritObject(v, strict_io=True, replace_ending_visarga=None)
->>>>>> > upstream/master
         g = analyzer.getSandhiSplits(vobj, tag=True)
         if g:
             splits = g.find_all_paths(10, score=True)

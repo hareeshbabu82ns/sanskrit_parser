@@ -20,7 +20,7 @@ spec:
           image: docker.{{server_domain}}/home/sanskrit-parser-api:latest
           imagePullPolicy: Always
           ports:
-            - containerPort: 80
+            - containerPort: 9000
           env:
             - name: NODE_ENV
               value: PROD
