@@ -29,6 +29,12 @@ Run:
 sudo mkdir /var/www/.sanskrit_parser
 sudo chmod a+rwx /var/www/.sanskrit_parser
 ```
+
+### Deploying to K8S
+* added .drone.yml with CI/CD steps
+* modify where to deploy and set secrets in drone ui
+* finally, just commit changes to branch
+
 ### Deploying Docker
 ```sh
 $> docker build --tag sanskrit-parser:1.0 .
