@@ -1,22 +1,28 @@
-sanskrit_parser's documentation
+`sanskrit_parser` documentation
 =========================================
 
-.. automodule:: sanskrit_parser
-  :members:
-  :undoc-members:
-  :show-inheritance:
+Contents
+------------------------
 
-
-Submodules
--------------
 .. toctree::
-  :maxdepth: 5
+  :maxdepth: 3
 
-  sanskrit_parser_api
-  sanskrit_parser_cmd_line
-  sanskrit_parser_parser
-  sanskrit_parser_base
-  sanskrit_parser_util
+  sanskrit_parser_doc
+
+.. toctree::
+  :maxdepth: 3
+
+  sanskrit_parser_usage
+
+.. toctree::
+  :maxdepth: 3
+
+  sanskrit_parser_tests
+
+.. toctree::
+  :maxdepth: 1
+
+  sanskrit_parser_code
 
 Indices and tables
 ------------------

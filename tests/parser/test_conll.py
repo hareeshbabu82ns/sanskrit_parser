@@ -27,21 +27,21 @@ def parse_test_f(test, testpadas, max_splits=1, max_parses=100,
                     score=False,
                     split_above=5,
                     lexical_lookup="combined")
-    parse_result = parser.parse(" ".join(testpadas), pre_segmented=True)
     parse = None
-    if parse_result is not None:
+
+    for si, split in enumerate(parser.split(" ".join(testpadas),
+                                            pre_segmented=True,
+                                            limit=max_splits)):
         if verbose:
-            print('Splits:')
-        for si, split in enumerate(parse_result.splits(max_splits=max_splits)):
+            print(f'Lexical Split: {split}')
+        for pi, parse in enumerate(split.parse(min_cost_only=True,
+                                               limit=max_parses)):
             if verbose:
-                print(f'Lexical Split: {split}')
-            for pi, parse in islice(enumerate(split.parses(min_cost_only=True)), max_parses):
+                print(f'Parse {pi} : (Cost = {parse.cost})')
+            if check_parse(parse, test, verbose=verbose):
                 if verbose:
-                    print(f'Parse {pi} : (Cost = {parse.cost})')
-                if check_parse(parse, test, verbose=verbose):
-                    if verbose:
-                        print(f'{parse}')
-                    return True, parse
+                    print(f'{parse}')
+                return True, parse
     return False, parse
 
 
@@ -80,8 +80,8 @@ if __name__ == "__main__":
         # Parser Setup
         parser = ArgumentParser(description='CONLL Reader')
         # String to encode
-        parser.add_argument('files', nargs="+", type=str)
-        parser.add_argument('-o', '--output', type=str, required=True)
+        parser.add_argument('files', nargs="+", type=str, default=["golden.conll"])
+        parser.add_argument('-o', '--output', type=str, default="/tmp/out.conll")
         parser.add_argument('--max-tests', type=int, default=100000)
         parser.add_argument('-v', '--verbose', action="store_true")
         args = parser.parse_args(argv)

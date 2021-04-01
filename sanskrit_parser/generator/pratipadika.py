@@ -120,3 +120,10 @@ sakTi = Pratipadika("sakTi", "napum")
 akzi = Pratipadika("akzi", "napum")
 atirE = Pratipadika("atirE", "napum")
 atinO = Pratipadika("atinO", "napum")
+
+
+# halanta pum
+lih_kvip = Pratipadika("lih", "pum", other_tags=["DAtu", "kvip"])
+duh_kvip = Pratipadika("duh", "pum", other_tags=["DAtu", "kvip"])
+druh_kvip = Pratipadika("druh", "pum", other_tags=["DAtu", "kvip"])
+muh_kvip = Pratipadika("muh", "pum", other_tags=["DAtu", "kvip"])

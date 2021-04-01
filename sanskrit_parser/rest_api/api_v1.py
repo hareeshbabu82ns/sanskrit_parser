@@ -1,15 +1,16 @@
-from flask import Blueprint, redirect
-import flask_restx
+from flask import Blueprint
 from flask_restx import Resource, reqparse
 from random import randint
-import subprocess
-from os import path
 import sqlite3
 from html.parser import HTMLParser
+# import subprocess
+# from os import path
+# from flask import redirect
 
 from sanskrit_parser.base.sanskrit_base import SanskritObject, SLP1
 from sanskrit_parser.parser.sandhi_analyzer import LexicalSandhiAnalyzer
-from sanskrit_parser.parser.datastructures import VakyaGraph
+from sanskrit_parser import __version__
+from sanskrit_parser import Parser
 
 URL_PREFIX = '/v1'
 api_blueprint = Blueprint(
@@ -60,6 +61,14 @@ def jtag(tag):
 def jtags(tags):
     """ Helper to translate tags to serializable format"""
     return [jtag(x) for x in tags]
+
+
+@api.route('/version/')
+class Version(Resource):
+    def get(self):
+        """Library Version"""
+        r = {"version": str(__version__)}
+        return r
 
 
 @api.route('/tags/<string:p>')
@@ -366,3 +375,37 @@ class LexiconHTMLParser(HTMLParser):
             vobj = SanskritObject(data, strict_io=strict_io, replace_ending_visarga=None)
             final_data = vobj.devanagari()
         self.mark_down = self.mark_down + final_data
+
+
+@api.route('/parse-presegmented/<string:v>')
+class Parse_Presegmented(Resource):
+    def get(self, v):
+        """ Parse a presegmented sentence """
+        vobj = SanskritObject(v, strict_io=True, replace_ending_visarga=None)
+        parser = Parser(input_encoding="SLP1",
+                        output_encoding="Devanagari",
+                        replace_ending_visarga='s')
+        mres = []
+        print(v)
+        for split in parser.split(vobj.canonical(), limit=10, pre_segmented=True):
+            parses = list(split.parse(limit=10))
+            sdot = split.to_dot()
+            mres = [x.serializable() for x in parses]
+            pdots = [x.to_dot() for x in parses]
+        r = {"input": v, "devanagari": vobj.devanagari(), "analysis": mres,
+             "split_dot": sdot,
+             "parse_dots": pdots}
+        return r
+
+
+@api.route('/presegmented/<string:v>')
+class Presegmented(Resource):
+    def get(self, v):
+        """ Presegmented Split """
+        vobj = SanskritObject(v, strict_io=True, replace_ending_visarga=None)
+        parser = Parser(input_encoding="SLP1",
+                        output_encoding="Devanagari",
+                        replace_ending_visarga='s')
+        splits = parser.split(vobj.canonical(), limit=10, pre_segmented=True)
+        r = {"input": v, "devanagari": vobj.devanagari(), "splits": [x.serializable()['split'] for x in splits]}
+        return r

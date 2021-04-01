@@ -1,0 +1,450 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Documentation &#8212; sanskrit_parser 0.1.1 documentation</title>
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Usage" href="sanskrit_parser_usage.html" />
+    <link rel="prev" title="sanskrit_parser documentation" href="sanskrit_parser.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="documentation">
+<h1>Documentation<a class="headerlink" href="#documentation" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h2>
+<p>The goal of the <cite>sanskrit_parser</cite> project is to create a freely reusable open
+source sanskrit parser and generator. This is intended to be usable as a
+python library for other tools that need sanskrit parsing and generation, as
+well as providing basic command line and web user interfaces for basic tasks.</p>
+<p>We aim to be</p>
+<ul class="simple">
+<li><p>Freely reusable (the more the merrier)</p></li>
+<li><p>Open Source</p></li>
+<li><dl class="simple">
+<dt>Classical - We favour traditional grammar over statistical methods,</dt><dd><p>but use statistical methods where necessary and helpful.</p>
+</dd>
+</dl>
+</li>
+</ul>
+</div>
+<div class="section" id="sandhi-split-segmentation">
+<h2>Sandhi Split / Segmentation<a class="headerlink" href="#sandhi-split-segmentation" title="Permalink to this headline">¶</a></h2>
+<p>Given a phrase, the goal is to be able to generate all valid
+segmentations (sandhi splits) such that each segment is a valid
+Sanskrit word (pada).</p>
+<p>For this, we first need a pada dictionary. We currently use a
+combination of open source data from the <a class="reference external" href="https://github.com/avinashvarna/sanskrit_forms">sanskrit_data</a> project and
+the <a class="reference external" href="https://gitlab.inria.fr/huet/Heritage_Resources">Sanskrit Heritage project of INRIA</a>.</p>
+<p>This will be eventually replaced by our own Paninian Pada generator when that
+is complete.</p>
+<div class="section" id="sandhi-rules">
+<h3>Sandhi Rules<a class="headerlink" href="#sandhi-rules" title="Permalink to this headline">¶</a></h3>
+<p>Paninian Sandhi rules have been implemented as a set of matching rules
+which define how sandhi transformations work.</p>
+<p>For example the famous इको यणचि (६.१.७७) rule is implemented thus</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span># यण्-सन्धिः
+# इको यणचि (६.१.७७)
+[*हल्][इ, ई] + [*अच् - इई][*हल्+ं] = {0}य्{2}{3}
+[*हल्][उ, ऊ] + [*अच् - उऊ][*हल्+ं] = {0}व्{2}{3}
+[*हल्][ऋ, ॠ] + [*अच् -ऋॠऌ][*हल्+ं] = {0}र्{2}{3}
+[*हल्][ऌ]+ [*अच् -ऋॠऌ][*हल्+ं] = {0}ल्{2}{3}
+</pre></div>
+</div>
+<p>Since these rules are defined in terms of Paninian pratyaharas such as
+<code class="docutils literal notranslate"><span class="pre">[*हल्]</span></code>, these are internally expanded into multiple sub-rules. Each
+subrule will end up with a defined sequence of characters on its right
+hand side.</p>
+<p>If a substring match with exactly that sequence is found,
+then the left hand side of the same subrule, suitably extended by the
+substring prefix and suffix is output as a possible split.</p>
+<p>At this stage, have a valid split as per sandhi rules, but not
+necessarily valid words in both halves. This is handled by the next stage.</p>
+</div>
+<div class="section" id="algorithm-for-sandhi-split">
+<h3>Algorithm for Sandhi Split<a class="headerlink" href="#algorithm-for-sandhi-split" title="Permalink to this headline">¶</a></h3>
+<p>We use a dynamic programming (memoized) algorithm to determine all possible
+<strong>valid</strong> sandhi splits for a string.</p>
+<ol class="arabic simple">
+<li><p>Given a string, we scan it from left to right, and generate a list of all possible splits at each point (as defined in the previous section) as determined by our library of sandhi rules.</p></li>
+<li><p>If the left hand split is a valid sanskrit word, we recursively split the right hand split using the same algorithm.</p>
+<ol class="arabic simple">
+<li><p>This split is memoized as is expected in a dynamic programming algorithm</p></li>
+</ol>
+</li>
+<li><p>The result of this algorithm is a DAG (Directed Acyclic Graph) that represents all sandhi splits of the input string into valid words. <em>Each split does not need to correspond to a valid sentence (vAkya) at this stage. That constraint is handled by the next stage</em>.</p></li>
+</ol>
+<p>For example, the string “अहङ्गच्छामि” results in the following DAG</p>
+<img alt="_images/aham_gacCAmi.png" src="_images/aham_gacCAmi.png" />
+<p>All graphs in this document have Sanskrit text encoded in <a class="reference external" href="https://en.wikipedia.org/wiki/SLP1">SLP1</a> format except if otherwise stated</p>
+<p>From this graph, each path between the beginning and the end nodes is a valid segmentation. When enumerating segmentations, we have two options</p>
+<ol class="arabic simple">
+<li><p>Prioritize paths with fewer number of words</p></li>
+<li><p>Prioritize paths with a lower score (default). This uses a word2vec based scoring approach</p></li>
+</ol>
+</div>
+</div>
+<div class="section" id="vakya-analysis-dependency-parsing">
+<h2>Vakya Analysis / Dependency Parsing<a class="headerlink" href="#vakya-analysis-dependency-parsing" title="Permalink to this headline">¶</a></h2>
+<p>The task of Vakya Analysis (Dependency Parsing) is to interpret a
+sandhi split (segmentation) as a valid Sanskrit sentence if
+possible. Each possible morpholgical interpretation of a word is
+considered, and valid sentence interpretations are output.</p>
+<div class="section" id="algorithm-for-vakya-analysis">
+<h3>Algorithm for Vakya Analysis<a class="headerlink" href="#algorithm-for-vakya-analysis" title="Permalink to this headline">¶</a></h3>
+<p>Given a sandhi split of the input phrase into valid words, we</p>
+<ol class="arabic simple">
+<li><p>Determine all valid morphologies of each pada. For example, रामः could be the प्रथमा एकवचनम् form of राम, or the लट् उत्तमपुरुषबहुवचनम् form of the verb रा. Only dependency parsing will tell us which form is relevant to the current sentence.</p></li>
+<li><p>The Sandhi Graph from the previous stage is transformed into a Vakya Graph, which is a k-partite graph with each partition containing the possible morphologies of each word. For example, the input रामो लङ्कां याति, which is split as रामः लङ्काम् याति results in this: <a class="reference internal" href="#kpgraph"><span class="std std-ref">k-partite graph for रामः लङ्काम् याति</span></a></p></li>
+<li><p>Edges are added between nodes in different partitions, so that each edge describes a possible grammatical relationship.</p></li>
+<li><p>A modified version of Kruskal’s algorithm is used to extract all Generalized Spanning Trees (GST) of the k-partite Vakya Graph. A GST is defined as a tree that contains exactly one node of each partition in the k-partite Vakya Graph.</p></li>
+<li><p>A Constraint checker checks consistency of each GST against a set of rules.</p></li>
+<li><p>Each such GST will be a valid parse of the sentence. For example: <a class="reference internal" href="#parsegraph"><span class="std std-ref">Parse Graph for रामः लङ्काम् याति</span></a></p></li>
+</ol>
+<div class="section" id="graphs">
+<h4>Graphs<a class="headerlink" href="#graphs" title="Permalink to this headline">¶</a></h4>
+<p>Some sample k-partite VakyaGraph and parse graphs generated</p>
+<div class="figure align-default" id="id1">
+<span id="kpgraph"></span><a class="reference internal image-reference" href="_images/rama_split0.dot.png"><img alt="_images/rama_split0.dot.png" src="_images/rama_split0.dot.png" style="width: 800px;" /></a>
+<p class="caption"><span class="caption-text">k-partite graph for रामः लङ्काम् याति</span><a class="headerlink" href="#id1" title="Permalink to this image">¶</a></p>
+</div>
+<div class="figure align-default" id="id2">
+<span id="parsegraph"></span><a class="reference internal image-reference" href="_images/rama_split0_parse0.dot.png"><img alt="_images/rama_split0_parse0.dot.png" src="_images/rama_split0_parse0.dot.png" style="width: 800px;" /></a>
+<p class="caption"><span class="caption-text">Parse Graph for रामः लङ्काम् याति</span><a class="headerlink" href="#id2" title="Permalink to this image">¶</a></p>
+</div>
+<div class="figure align-default" id="id3">
+<span id="parsegraph3"></span><a class="reference internal image-reference" href="_images/ds_split0_parse0.dot.png"><img alt="_images/ds_split0_parse0.dot.png" src="_images/ds_split0_parse0.dot.png" style="width: 800px;" /></a>
+<p class="caption"><span class="caption-text">Parse Graph for “धर्मक्षेत्रे कुरुक्षेत्रे समावेता युयुत्सवः किमकुर्वत”</span><a class="headerlink" href="#id3" title="Permalink to this image">¶</a></p>
+</div>
+</div>
+</div>
+<div class="section" id="edges">
+<h3>Edges<a class="headerlink" href="#edges" title="Permalink to this headline">¶</a></h3>
+<p>We add the following set of edges</p>
+<p><strong>Karaka Edges</strong></p>
+<p>These edges are added between verb forms and others based on vibhakti
+(note that these names are SLP1 encoded)</p>
+<ol class="arabic simple">
+<li><p>kartA</p></li>
+<li><p>hetu-kartA</p></li>
+<li><p>karma</p></li>
+<li><p>gauRa-karma</p></li>
+<li><p>karaRam</p></li>
+<li><p>saMpradAnam</p></li>
+<li><p>apAdAnam</p></li>
+<li><p>aDikaraRam</p></li>
+<li><p>samboDyam</p></li>
+</ol>
+<div class="figure align-default" id="id4">
+<span id="parsegraph-karaka"></span><a class="reference internal image-reference" href="_images/karaka_split0_parse0.dot.png"><img alt="_images/karaka_split0_parse0.dot.png" src="_images/karaka_split0_parse0.dot.png" style="width: 800px;" /></a>
+<p class="caption"><span class="caption-text">Parse Graph for “राघवः रावणम् बाणैः रणभूमौ जघान”</span><a class="headerlink" href="#id4" title="Permalink to this image">¶</a></p>
+</div>
+<div class="figure align-default" id="id5">
+<span id="parsegraph-karaka2"></span><a class="reference internal image-reference" href="_images/pustakam_split0_parse20.dot.png"><img alt="_images/pustakam_split0_parse20.dot.png" src="_images/pustakam_split0_parse20.dot.png" style="width: 800px;" /></a>
+<p class="caption"><span class="caption-text">Parse Graph for “अहम् तस्मै पुस्तकम् अददम्”</span><a class="headerlink" href="#id5" title="Permalink to this image">¶</a></p>
+</div>
+<div class="figure align-default" id="id6">
+<span id="parsegraph-gauna"></span><a class="reference internal image-reference" href="_images/gauna_split0_parse0.dot.png"><img alt="_images/gauna_split0_parse0.dot.png" src="_images/gauna_split0_parse0.dot.png" style="width: 800px;" /></a>
+<p class="caption"><span class="caption-text">Parse Graph for “गां दोग्धि पयः”</span><a class="headerlink" href="#id6" title="Permalink to this image">¶</a></p>
+</div>
+<p><strong>Non-kAraka Vibhakti-based Edges</strong></p>
+<ol class="arabic simple">
+<li><p>zazWI-sambanDa</p></li>
+<li><p>upapada-dvitIyA</p></li>
+<li><p>upapada-tftIyA</p></li>
+<li><p>upapada-caturTI</p></li>
+<li><p>upapada-pancamI</p></li>
+<li><p>viSezaRam</p></li>
+</ol>
+<p><strong>Non-Vibhakti-Based Verb Edges</strong></p>
+<ol class="arabic simple">
+<li><p>kriyAviSezaRam</p></li>
+<li><p>upasargaH (verbal prefixes)</p></li>
+<li><p>karmapravacanIyaH</p></li>
+<li><p>BAvalakzaRam</p></li>
+<li><p>nizeDa</p></li>
+<li><p>pUrvakAlaH</p></li>
+<li><p>samAnakAlaH</p></li>
+<li><p>prayojanam</p></li>
+</ol>
+<div class="figure align-default" id="id7">
+<span id="parsegraph-bana"></span><a class="reference internal image-reference" href="_images/bana_split0_parse1.dot.png"><img alt="_images/bana_split0_parse1.dot.png" src="_images/bana_split0_parse1.dot.png" style="width: 800px;" /></a>
+<p class="caption"><span class="caption-text">Parse Graph for “रामः रावणस्य शिरांसि प्रति तीक्ष्णान् बाणान् चिक्षेप”</span><a class="headerlink" href="#id7" title="Permalink to this image">¶</a></p>
+</div>
+<div class="figure align-default" id="id8">
+<span id="parsegraph-bhava"></span><a class="reference internal image-reference" href="_images/bhavalakshanam_split0_parse5.dot.png"><img alt="_images/bhavalakshanam_split0_parse5.dot.png" src="_images/bhavalakshanam_split0_parse5.dot.png" style="width: 800px;" /></a>
+<p class="caption"><span class="caption-text">Parse Graph for “गोषु दुह्यमानासु अगच्छत्”</span><a class="headerlink" href="#id8" title="Permalink to this image">¶</a></p>
+</div>
+<div class="figure align-default" id="id9">
+<span id="parsegraph-nishedha"></span><a class="reference internal image-reference" href="_images/nishedha_split0_parse6.dot.png"><img alt="_images/nishedha_split0_parse6.dot.png" src="_images/nishedha_split0_parse6.dot.png" style="width: 800px;" /></a>
+<p class="caption"><span class="caption-text">Parse Graph for “शनैः न गच्छति”</span><a class="headerlink" href="#id9" title="Permalink to this image">¶</a></p>
+</div>
+<div class="figure align-default" id="id10">
+<span id="parsegraph-upasarga"></span><a class="reference internal image-reference" href="_images/upasarga_split0_parse2.dot.png"><img alt="_images/upasarga_split0_parse2.dot.png" src="_images/upasarga_split0_parse2.dot.png" style="width: 800px;" /></a>
+<p class="caption"><span class="caption-text">Parse Graph for “उत्तिष्ठ नरशार्दूल”</span><a class="headerlink" href="#id10" title="Permalink to this image">¶</a></p>
+</div>
+<div class="figure align-default" id="id11">
+<span id="parsegraph-rnam"></span><a class="reference internal image-reference" href="_images/rnam_split0_parse9.dot.png"><img alt="_images/rnam_split0_parse9.dot.png" src="_images/rnam_split0_parse9.dot.png" style="width: 800px;" /></a>
+<p class="caption"><span class="caption-text">Parse Graph for “ऋणम् कृत्वा घृतम् पिबेत्”</span><a class="headerlink" href="#id11" title="Permalink to this image">¶</a></p>
+</div>
+<p><strong>Other Non-Vibhakti Edges</strong></p>
+<ol class="arabic simple">
+<li><p>vIpsA (repeated words)</p></li>
+<li><p>samasta (for samAsa constituents except the last)</p></li>
+</ol>
+<p><strong>Conjunctions</strong></p>
+<ol class="arabic simple">
+<li><p>samuccitam</p></li>
+</ol>
+<div class="figure align-default" id="id12">
+<span id="parsegraph-arjuna"></span><a class="reference internal image-reference" href="_images/arjuna_split0_parse0.dot.png"><img alt="_images/arjuna_split0_parse0.dot.png" src="_images/arjuna_split0_parse0.dot.png" style="width: 800px;" /></a>
+<p class="caption"><span class="caption-text">Parse Graph for “अर्जुनः कर्णम् जरासन्धम् च जघान”</span><a class="headerlink" href="#id12" title="Permalink to this image">¶</a></p>
+</div>
+<p><strong>Sentence Conjunctions</strong></p>
+<ol class="arabic simple">
+<li><p>vAkyasambanDaH (from yat to tat, for example)</p></li>
+<li><p>sambaDakriyA   (in the absence of tat, from yat to the dependent verb)</p></li>
+<li><p>sambadDa-kartA etc. (where a kAraka for a main and dependent verb are paired, the dependent verb’s kAraka arc is reversed with a sambaDa arc)</p></li>
+</ol>
+<div class="figure align-default" id="id13">
+<span id="parsegraph-vidya"></span><a class="reference internal image-reference" href="_images/vidya_split0_parse0.dot.png"><img alt="_images/vidya_split0_parse0.dot.png" src="_images/vidya_split0_parse0.dot.png" style="width: 800px;" /></a>
+<p class="caption"><span class="caption-text">Parse Graph for “सा विद्या वर्तते या मुक्तिम् ददाति”</span><a class="headerlink" href="#id13" title="Permalink to this image">¶</a></p>
+</div>
+</div>
+</div>
+<div class="section" id="modified-kruskal-algorithm">
+<h2>Modified Kruskal Algorithm<a class="headerlink" href="#modified-kruskal-algorithm" title="Permalink to this headline">¶</a></h2>
+<p>Several algorithms are available to compute Spanning Trees (ST), and specifically Minimum Cost Spanning Trees (MST) for connected graphs.
+Our VakyaGraphs are k-partite, and we need to fint a GST rather than an ST. We extend one of the standard algorithms - <a class="reference external" href="https://en.wikipedia.org/wiki/Kruskal%27s_algorithm">Kruskal’s Algorithm</a> - to:</p>
+<ul class="simple">
+<li><p>Work with k-partite graphs</p></li>
+<li><p>Generate all GSTs instead of only a MST.</p></li>
+</ul>
+<p>Our implementation of the Modified Kruskal Algorithm works thus:</p>
+<ol class="arabic">
+<li><p>We start with a k-partite Vakya Graph</p></li>
+<li><p>Our main datastructure is called a VakyaParse. Each VakyaParse data structure incorporates</p>
+<ol class="arabic simple">
+<li><p>A <a class="reference external" href="https://en.wikipedia.org/wiki/Disjoint-set_data_structure">DisjointSet data-structure</a> similar to Kruskal’s Algorithm</p></li>
+<li><p>A set of edges in the parse</p></li>
+<li><p>A set of active nodes in the partial parse (which is identical to the nodes in the set of edges) but maintained separately to limit computation</p></li>
+<li><p>A set of extinguished nodes: all nodes that are in the same partitions as the active nodes, and hence cannot be part of the parse.</p></li>
+</ol>
+</li>
+<li><p>We initialize the set of candidate parses with a VakyaParse initialized to a null partial parse. A VakyaParse is called a partial parse while this algorithm is running, a candidate parse before Final Constraint Check, and a parse afterwards.</p></li>
+<li><p>We iterate over each partition. At each partition, all input edges to any node in the partition are examined. If an edge is safe to add to a partial parse, a <em>new</em> partial parse is created by adding that edge, and the new partial parse is added to the set of partial parses. When an edge is added to a partial parse, all nodes in the same partitions as the two nodes of the edge are moved to the extinguised list of that partial parse.  An edge is safe to add to a partial parse when</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p>Neither node of the edge is in the partial parse’s extinguished list</p></li>
+<li><p>Adding the edge will not cause a loop</p></li>
+<li><p>Adding the edge will not violate <a class="reference internal" href="#on-the-fly-constraints">On-The-Fly Constraints</a></p></li>
+</ol>
+</div></blockquote>
+</li>
+<li><p>Note that the current set of partial parses are retained in the partial parse set, the extensions in the previous step are added to the set. This is because a GMST with <cite>n</cite> nodes will have only <cite>n-1</cite> edges, and hence we need to account for the possibility of a partial parse being unmodified in one iteration.</p></li>
+<li><p>Once we have added all possible edges to all possible partial parses and extended the partial parse set, we prune “small parses”. As indicated, we expect a GMST to have <cite>n-1</cite> edges. A small parse is one with less than <cite>m-1</cite> edges, where <cite>m</cite> is the number of iterations so far. We know that these cannot result in a parse with <cite>n-1</cite> edges, given that there are only <cite>n-m</cite> iterations left.</p></li>
+<li><p>Once all partitions have been seen, the set of partial parses is now our set of candidate parses</p></li>
+<li><p>All candidate parses are taken through checks of <a class="reference internal" href="#final-constraints">Final Constraints</a>, and all that pass become our list of valid parses.</p></li>
+</ol>
+<div class="section" id="divide-and-conquer">
+<h3>Divide and Conquer<a class="headerlink" href="#divide-and-conquer" title="Permalink to this headline">¶</a></h3>
+<p>To control runtime, we use the divide-and-conquer approach. We maintain a maximum number of partitions, below which the algorithm divides the partition set into two. Once partial parses for each subset is created as above, a cross-product merge of the sets of partial parses is performed. Merging two partial parses is conceptually equal to adding all edges in a partial parse to another after performing the requisite checks of <a class="reference internal" href="#on-the-fly-constraints">On-The-Fly Constraints</a>. However, this can be accelerated using set operations on the edge, active and extinguished sets.</p>
+</div>
+</div>
+<div class="section" id="gst-constraint-checks">
+<h2>GST Constraint Checks<a class="headerlink" href="#gst-constraint-checks" title="Permalink to this headline">¶</a></h2>
+<p>Not all outputs of a tree-finding algorithm are valid parse
+graphs. Therefore, two sets of constraints are applied in the process
+to reject incorrect parses. These incorporate grammatical knowledge
+about what constitutes a valid parse.</p>
+<p>Constraints are applied in two stages</p>
+<ol class="arabic simple">
+<li><p>On the fly, when partial parses are being assembled</p></li>
+<li><p>Once a full candidate parse has been assembed</p></li>
+</ol>
+<div class="section" id="on-the-fly-constraints">
+<h3>On-The-Fly Constraints<a class="headerlink" href="#on-the-fly-constraints" title="Permalink to this headline">¶</a></h3>
+<p>We refer to constraints checked during parse assembly as On-The-Fly
+Constraints. Any constraint that is fully applicable to any subset of
+a valid parse falls in this category.</p>
+<p>Obvious examples are</p>
+<ol class="arabic simple">
+<li><p>No loops are allowed</p></li>
+<li><p>There can be only one node that satisfies a particular kAraka relation with a verb form</p></li>
+<li><p>A word can perform only one grammatical function - that is to say, it can have only a single incoming node (strictly speaking, this is not applied as a constraint, but baked into the sequence of edge picking in the algorithm)
+#. For reversed edges (sambadDa-kartA, etc.), there can be only one such edge going <em>out</em> of a node.</p></li>
+<li><p>A viSezaRa cannot have another viSezaRa.</p></li>
+</ol>
+<p>These are checked before any partial parse is added to the list of current partial parses is the algorithm.</p>
+</div>
+<div class="section" id="final-constraints">
+<h3>Final Constraints<a class="headerlink" href="#final-constraints" title="Permalink to this headline">¶</a></h3>
+<p>As opposed to an On-The-Fly constraint, a final constraint requires a
+full candidate parse, and hence can be checked only when a candidate
+parse is fully assembled.</p>
+<ol class="arabic simple">
+<li><p>Sannidhi check: A GST must be projective to be a valid graph - that is to say, most kinds of edges may not cross each other when the nodes in a graph are laid out linearly, and all edges are marked to one side of the nodes.</p>
+<ul class="simple">
+<li><p>This excludes viSezaRa edges and zazWI-sambanDa edges (we currently do not allow the latter to cross either)</p></li>
+</ul>
+</li>
+<li><p>Every conjunction must have exactly one from and to edge.</p></li>
+<li><p>Sentence conjunction checks</p>
+<ol class="arabic simple">
+<li><p>We do not allow edges “across” from either of a pair of nodes that form a sentence conjuntion to a node “beyond” the other.</p></li>
+<li><p>A reversed (“sambadDa-“) edge must be from a node with a sentence conjunction relationship (ie: must have a vAkyasambanDa edge coming in)</p></li>
+</ol>
+</li>
+</ol>
+<p>A candidate parse that satisfies final constraints is considered a valid parse and is output.</p>
+</div>
+</div>
+<div class="section" id="output-formats">
+<h2>Output Formats<a class="headerlink" href="#output-formats" title="Permalink to this headline">¶</a></h2>
+<ol class="arabic simple">
+<li><dl class="field-list simple">
+<dt class="field-odd">Text</dt>
+<dd class="field-odd"><p>Standard output is provided in human readable text form</p>
+</dd>
+</dl>
+</li>
+<li><dl class="field-list simple">
+<dt class="field-odd">Dot</dt>
+<dd class="field-odd"><p>The dot format for graphs is supported (using the <cite>–dot-file</cite> option). This can be further converted into png or other image formats using the <cite>graphviz</cite> framework. Graphs shown in this document have been created in this manner.</p>
+</dd>
+</dl>
+</li>
+<li><dl class="field-list simple">
+<dt class="field-odd">Conll</dt>
+<dd class="field-odd"><p>CONLL format is used by the NLP research community, and is provided as an output option mainly for interoperability and test purposes.</p>
+</dd>
+</dl>
+</li>
+</ol>
+</div>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="sanskrit_parser.html">sanskrit_parser</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Documentation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#introduction">Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#sandhi-split-segmentation">Sandhi Split / Segmentation</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#sandhi-rules">Sandhi Rules</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#algorithm-for-sandhi-split">Algorithm for Sandhi Split</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#vakya-analysis-dependency-parsing">Vakya Analysis / Dependency Parsing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#algorithm-for-vakya-analysis">Algorithm for Vakya Analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#edges">Edges</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#modified-kruskal-algorithm">Modified Kruskal Algorithm</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#divide-and-conquer">Divide and Conquer</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#gst-constraint-checks">GST Constraint Checks</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#on-the-fly-constraints">On-The-Fly Constraints</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#final-constraints">Final Constraints</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#output-formats">Output Formats</a></li>
+</ul>
+</li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sanskrit_parser_usage.html">Usage</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sanskrit_parser_tests.html">Tests</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="sanskrit_parser_code.html">Code</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="sanskrit_parser.html">Documentation overview</a><ul>
+      <li>Previous: <a href="sanskrit_parser.html" title="previous chapter"><cite>sanskrit_parser</cite> documentation</a></li>
+      <li>Next: <a href="sanskrit_parser_usage.html" title="next chapter">Usage</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2017-2021, sanskrit-programmers.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 3.4.3</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/sanskrit_parser_doc.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
