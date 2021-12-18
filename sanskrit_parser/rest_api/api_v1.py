@@ -1,4 +1,8 @@
+from os import path
+import subprocess
 from flask import Blueprint
+from flask import request, redirect
+import flask_restx
 from flask_restx import Resource, reqparse
 from random import randint
 import sqlite3
@@ -8,6 +12,7 @@ from html.parser import HTMLParser
 # from flask import redirect
 
 from sanskrit_parser.base.sanskrit_base import SanskritObject, SLP1
+from sanskrit_parser.parser.datastructures import VakyaGraph
 from sanskrit_parser.parser.sandhi_analyzer import LexicalSandhiAnalyzer
 from sanskrit_parser import __version__
 from sanskrit_parser import Parser
@@ -98,7 +103,10 @@ class Splits(Resource):
         as_devanagari = args.get('as_devanagari', False)
 
         """ Get lexical tags for v """
-        vobj = SanskritObject(v, strict_io=strict_io, replace_ending_visarga=None)
+        strict_p = True
+        if request.args.get("strict") == "false":
+            strict_p = False
+        vobj = SanskritObject(v, strict_io=strict_p, replace_ending_visarga=None)
         g = analyzer.getSandhiSplits(vobj)
         if g:
             splits = g.find_all_paths(max_paths)
@@ -381,7 +389,10 @@ class LexiconHTMLParser(HTMLParser):
 class Parse_Presegmented(Resource):
     def get(self, v):
         """ Parse a presegmented sentence """
-        vobj = SanskritObject(v, strict_io=True, replace_ending_visarga=None)
+        strict_p = True
+        if request.args.get("strict") == "false":
+            strict_p = False
+        vobj = SanskritObject(v, strict_io=strict_p, replace_ending_visarga=None)
         parser = Parser(input_encoding="SLP1",
                         output_encoding="Devanagari",
                         replace_ending_visarga='s')
