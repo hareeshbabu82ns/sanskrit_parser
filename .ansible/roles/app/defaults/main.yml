@@ -1,0 +1,5 @@
+app_port: 9000
+app_name: "sanskrit-parser-api"
+app_fqdn: "{{app_name}}.kube.local.io"
+app_image_version: "latest"
+app_image_name: "{{docker_domain}}.{{server_domain}}/home/{{app_name}}:{{app_image_version}}"

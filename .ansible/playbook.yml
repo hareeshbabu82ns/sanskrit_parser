@@ -1,0 +1,9 @@
+---
+- hosts: host-ct
+  gather_facts: yes
+  roles:
+    - role: app
+      tags: 'app'
+
+  environment:
+    PATH: "/var/lib/rancher/rke2/bin:$PATH"

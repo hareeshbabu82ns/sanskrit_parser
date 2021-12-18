@@ -1,0 +1,38 @@
+---
+
+- name: GitTag from Extra Vars
+  debug:
+    var: git_tag
+
+# - name: Ansible Env
+#   debug:
+#     var: ansible_env
+
+# - name: Copy KubeConfig
+#   shell: >
+#     mkdir -p {{ansible_env.HOME}}/.kube/ \
+#     && touch {{ansible_env.HOME}}/.kube/config \
+#     && echo {{ansible_env.KUBECONFIG_FILE_CONTENT}} | base64 -d > {{ansible_env.HOME}}/.kube/config
+
+# - name: Check K8S connectivity
+#   shell: >
+#     kubectl get nodes
+#   register: k8s_nodes
+
+# - name: K8S nodes
+#   debug:
+#     var: k8s_nodes
+
+- name: copy templates to tmp
+  template:
+    src: "{{item}}"
+    dest: "/tmp/{{item}}"
+    owner: "{{ansible_ssh_user}}"
+    # group: users
+    # mode: 0600
+  loop:
+    - deployment.yaml
+
+- name: apply deployment to k8s
+  shell: >
+    kubectl apply -f /tmp/deployment.yaml

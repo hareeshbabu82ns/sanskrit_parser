@@ -2,16 +2,6 @@ kind: pipeline
 name: sanskrit-parser-api
 
 steps:
-  
-## activate tests in future  
-# - name: sanskrit-parser-api - test
-#   image: node:14-alpine
-#   commands:
-#   - yarn install
-#   - yarn test
-#   when:
-#     branch:
-#     - docker
 
 # For Custom Docker Registry
 - name: sanskrit-parser-api - build docker image
@@ -26,6 +16,7 @@ steps:
       from_secret: docker_pass
     SERVER_DOMAIN:
       from_secret: server_domain
+    DRONE_TAG: ${DRONE_TAG}
   commands:
     - docker login -p $DPASS -u $DUSER docker.$SERVER_DOMAIN
     - docker build --no-cache -t docker.$SERVER_DOMAIN/home/sanskrit-parser-api:latest -f Dockerfile.api .
@@ -34,36 +25,24 @@ steps:
     branch:
     - docker
 
-## Following works when publishing from root of the repository
-# - name: build plugins/docker image
-#   image: plugins/docker
-#   settings:
-#     tags:
-#       - latest
-#     # dockerfile: sanskrit-parser-api/Dockerfile
-#     repo: test/sanskrit-parser-api
-#     registry: registry.unraid:33294
-#     insecure: true
-
-- name: sanskrit-parser-api - deploy
-  image: sinlead/drone-kubectl
-  settings:
-    kubernetes_server:
-      from_secret: k8s_server
-    kubernetes_cert:
-      from_secret: k8s_cert
-    kubernetes_token:
-      from_secret: k8s_token
+# Deploy app using ansible
+- name: apply ansible playbook
+  image: plugins/ansible:1
   environment:
-    CLUSTER_DOMAIN:
-      from_secret: cluster_domain
-    SERVER_DOMAIN:
-      from_secret: server_domain      
-  commands:
-    - sed -i "s/{{cluster_domain}}/$CLUSTER_DOMAIN/g"  ./k8s/deployment.yaml
-    - sed -i "s/{{server_domain}}/$SERVER_DOMAIN/g"  ./k8s/deployment.yaml
-    - kubectl apply -f k8s/deployment.yaml --insecure-skip-tls-verify
-    - kubectl rollout restart deployment/sanskrit-parser-api --insecure-skip-tls-verify
+    ansible_vault_pass:
+      from_secret: ansible_vault_pass
+    # KUBECONFIG_FILE_CONTENT:
+    #   from_secret: rke2_kubeconfig
+  settings:
+    playbook: .ansible/playbook.yml
+    # galaxy: .ansible/requirements.yml
+    inventory: .ansible/inventory
+    private_key:
+      from_secret: host_ssh_key
+    vault_password:
+      from_secret: ansible_vault_pass
+    extra_vars:
+      git_tag: ${DRONE_TAG}
   when:
     branch:
     - docker

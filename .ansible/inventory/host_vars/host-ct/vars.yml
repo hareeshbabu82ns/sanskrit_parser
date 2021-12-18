@@ -1,0 +1,13 @@
+ssh_user: "{{ vault_ssh_user }}"
+
+server_domain: "{{vault_server_domain}}"
+docker_fdqn: "docker.{{vault_server_domain}}"
+
+git_tag: "latest"
+
+mongo_db_name: "sanskrit-parser-api"
+mongo_db: "{{mongo_db_name}}"
+mongo_user: "sanskrit-parser-api"
+mongo_pwd: "{{vault_mongo_pwd}}"
+
+mongo_uri: "mongodb://{{mongo_user}}:{{mongo_pwd}}@docker-ct.local.io:27017/{{mongo_db}}"
