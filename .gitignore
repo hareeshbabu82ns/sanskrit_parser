@@ -10,6 +10,7 @@ __pycache__/
 sanskrit_parser.tar
 # C extensions
 *.so
+vault.pass
 
 # Distribution / packaging
 .Python
