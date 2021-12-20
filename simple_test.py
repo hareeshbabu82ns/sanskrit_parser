@@ -27,14 +27,18 @@ obj = SanskritImmutableString("kuru", encoding=SLP1)
 ts = lexan.getMorphologicalTags(obj)
 print('\nlexical: tags: ', ts)
 
-obj = SanskritObject('मूढ जहीहि धनागमतृष्णां कुरु सद्बुद्धिं मनसि वितृष्णाम्', encoding=DEVANAGARI)
+# obj = SanskritObject('मूढ जहीहि धनागमतृष्णां कुरु सद्बुद्धिं मनसि वितृष्णाम्', encoding=DEVANAGARI)
+# obj = SanskritObject('को न्वस्मिन् साम्प्रतं लोके गुणवान् कश्च वीर्यवान् धर्मज्ञश्च कृतज्ञश्च सत्यवाक्यो दृढव्रत', encoding=DEVANAGARI)
+obj = SanskritObject('तस्मात्समस्तक्षत्रवर्गगर्वपाटनवरिष्ठधारापरश्वधभरणभीषणवेषभार्गवभङ्गादपरिच्छिन्नतरशौर्यशालिनि', encoding=DEVANAGARI)
 graph = lexan.getSandhiSplits(obj)
 splits = graph.find_all_paths(10)
 print('\nlexical: splits: Devanagari ')
 for split in splits:
     print(split)
 
-sentence = SanskritObject("mAmakAH pANDavAshchaiva kimakurvata sa~njaya")  # "astyuttarasyAMdishidevatAtmA"
+# sentence = SanskritObject("mAmakAH pANDavAshchaiva kimakurvata sa~njaya")  # "astyuttarasyAMdishidevatAtmA"
+# "astyuttarasyAMdishidevatAtmA"
+sentence = SanskritObject("ko nvasmin sAmprataM loke guRavAn kaSca vIryavAn DarmajYaSca kftajYaSca satyavAkyo dfQavrataH")
 splits = lexan.getSandhiSplits(sentence).find_all_paths(10)
 print('\nlexical: splits: SLP1 ')
 for split in splits:

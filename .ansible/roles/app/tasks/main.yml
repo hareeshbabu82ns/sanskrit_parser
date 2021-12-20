@@ -1,8 +1,16 @@
 ---
-
 - name: GitTag from Extra Vars
+  set_fact:
+    img_tag: "{{ git_tag | default('latest') }}"
+
+- name: Check GitTag
+  set_fact:
+    img_tag: latest
+  when: (img_tag is not defined) or (img_tag|length == 0)
+
+- name: ImgTag
   debug:
-    var: git_tag
+    var: img_tag
 
 # - name: Ansible Env
 #   debug:
