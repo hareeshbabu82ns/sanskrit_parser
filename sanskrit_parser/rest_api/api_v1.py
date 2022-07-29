@@ -10,8 +10,8 @@ from html.parser import HTMLParser
 # import subprocess
 # from os import path
 # from flask import redirect
-
-from sanskrit_parser.base.sanskrit_base import SanskritObject, SLP1
+from indic_transliteration import sanscript
+from sanskrit_parser.base.sanskrit_base import SanskritObject
 from sanskrit_parser.parser.datastructures import VakyaGraph
 from sanskrit_parser.parser.sandhi_analyzer import LexicalSandhiAnalyzer
 from sanskrit_parser import __version__
@@ -48,7 +48,7 @@ DICT_CONN_LIST = {'vcp': vcp_dict_conn, 'skd': skd_dict_conn, 'mwe': mwe_dict_co
 def jedge(pred, node, label):
     return (node.pada.devanagari(strict_io=False),
             jtag(node.getMorphologicalTags()),
-            SanskritObject(label, encoding=SLP1).devanagari(strict_io=False),
+            SanskritObject(label, encoding=sanscript.SLP1).devanagari(strict_io=False),
             pred.pada.devanagari(strict_io=False))
 
 
@@ -393,7 +393,7 @@ class Parse_Presegmented(Resource):
         if request.args.get("strict") == "false":
             strict_p = False
         vobj = SanskritObject(v, strict_io=strict_p, replace_ending_visarga=None)
-        parser = Parser(input_encoding="SLP1",
+        parser = Parser(input_encoding=sanscript.SLP1,
                         output_encoding="Devanagari",
                         replace_ending_visarga='s')
         mres = []
@@ -414,7 +414,7 @@ class Presegmented(Resource):
     def get(self, v):
         """ Presegmented Split """
         vobj = SanskritObject(v, strict_io=True, replace_ending_visarga=None)
-        parser = Parser(input_encoding="SLP1",
+        parser = Parser(input_encoding=sanscript.SLP1,
                         output_encoding="Devanagari",
                         replace_ending_visarga='s')
         splits = parser.split(vobj.canonical(), limit=10, pre_segmented=True)

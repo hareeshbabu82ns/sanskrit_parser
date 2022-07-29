@@ -8,44 +8,6 @@ from contextlib import contextmanager
 import logging
 import six
 
-# Wrap scheme names defined in sanscript
-BENGALI = sanscript.BENGALI
-DEVANAGARI = sanscript.DEVANAGARI
-GUJARATI = sanscript.GUJARATI
-GURMUKHI = sanscript.GURMUKHI
-KANNADA = sanscript.KANNADA
-MALAYALAM = sanscript.MALAYALAM
-ORIYA = sanscript.ORIYA
-TAMIL = sanscript.TAMIL
-TELUGU = sanscript.TELUGU
-HK = sanscript.HK
-IAST = sanscript.IAST
-ITRANS = sanscript.ITRANS
-KOLKATA = sanscript.KOLKATA
-SLP1 = sanscript.SLP1
-VELTHUIS = sanscript.VELTHUIS
-WX = sanscript.WX
-
-# Dict defined so autodetect can work
-SCHEMES = {
-    'Bengali': BENGALI,
-    'Devanagari': DEVANAGARI,
-    'Gujarati': GUJARATI,
-    'Gurmukhi': GURMUKHI,
-    'Kannada': KANNADA,
-    'Malayalam': MALAYALAM,
-    'Oriya': ORIYA,
-    'Tamil': TAMIL,
-    'Telugu': TELUGU,
-    'HK': HK,
-    'IAST': IAST,
-    'ITRANS': ITRANS,
-    'Kolkata': KOLKATA,
-    'SLP1': SLP1,
-    'Velthuis': VELTHUIS,
-    'WX': WX
-}
-
 logger = logging.getLogger(__name__)
 denormalize = False
 
@@ -55,7 +17,7 @@ class SanskritString(object):
 
         Attributes:
            thing(str)   : thing to be represented
-           encoding(str): SanskritBase encoding of thing as passed (eg: SanskritBase.HK, SanskritBase.DEVANAGARI)
+           encoding(str): SanskritBase encoding of thing as passed (eg: sanscript.HK, sanscript.DEVANAGARI)
         Args:
            thing(str):    As above
            encoding(str): As above
@@ -73,10 +35,10 @@ class SanskritString(object):
             self.thing = six.text_type(thing, unicode_encoding)
         if encoding is None:
             # Autodetect Encoding
-            encoding = SCHEMES[detect.detect(self.thing)]
-        if encoding != SLP1:
+            encoding = detect.detect(self.thing)
+        if encoding != sanscript.SLP1:
             # Convert to SLP1
-            self.thing = sanscript.transliterate(self.thing, encoding, SLP1)
+            self.thing = sanscript.transliterate(self.thing, encoding, sanscript.SLP1)
             # At this point, we are guaranteed that internal
             # representation is in SLP1
 
@@ -91,17 +53,17 @@ class SanskritString(object):
         s = self.thing
         if not strict_io:
             s = normalization.denormalize(s)
-        return sanscript.transliterate(s, SLP1, encoding)
+        return sanscript.transliterate(s, sanscript.SLP1, encoding)
 
     def canonical(self, strict_io=True):
         """ Return canonical transcoding (SLP1) of self
         """
-        return self.transcoded(SLP1, strict_io)
+        return self.transcoded(sanscript.SLP1, strict_io)
 
     def devanagari(self, strict_io=True):
         """ Return devanagari transcoding of self
         """
-        return self.transcoded(DEVANAGARI, strict_io)
+        return self.transcoded(sanscript.DEVANAGARI, strict_io)
 
     # Updates internal string, leaves everything else alone
     # Not to be used in all cases, as this is very limited
@@ -112,7 +74,7 @@ class SanskritString(object):
 
     def __str__(self):
         global denormalize
-        s = self.transcoded(SLP1)
+        s = self.transcoded(sanscript.SLP1)
         if denormalize:
             s = normalization.denormalize(s)
         return s
@@ -161,7 +123,7 @@ class SanskritNormalizedString(SanskritString):
                 self.thing = tmp
             # Lazy Anusvaras (see issue #103)
             try:
-                self.thing = sanscript.SCHEMES[sanscript.SLP1].fix_lazy_anusvaara(self.thing)
+                self.thing = sanscript.SLP1.fix_lazy_anusvaara(self.thing)
             except (NameError, AttributeError):
                 print("Not fixing lazy anusvaras, you probably have an older version of indic_transliteration")
             logger.debug("After normalization: %s", self.thing)
@@ -227,9 +189,9 @@ if __name__ == "__main__":
         if args.input_encoding is None:
             ie = None
         else:
-            ie = SCHEMES[args.input_encoding]
+            ie = args.input_encoding
 
-        oe = SCHEMES[args.output_encoding]
+        oe = args.output_encoding
 
         s = SanskritObject(args.data, ie)
         print(s.transcoded(oe))
