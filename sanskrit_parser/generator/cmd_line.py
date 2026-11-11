@@ -4,7 +4,17 @@
 
 """
 from argparse import ArgumentParser, Action
+
 import logging
+# First we disable the root logger handlers
+rootlogger = logging.getLogger()
+for h in rootlogger.handlers:
+    rootlogger.removeHandler(h)
+rootlogger.addHandler(logging.NullHandler())
+
+
+import sys
+import codecs
 
 from indic_transliteration import sanscript
 from sanskrit_parser.generator.paninian_object import PaninianObject
@@ -181,6 +191,8 @@ def get_args(argv=None):
 
 
 def cmd_line():
+    # Windows doesn't work correctly without this
+    sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
     # Logging
     enable_console_logger()
     args = get_args()
@@ -210,7 +222,8 @@ def cmd_line():
         r = generate_vibhakti(pp, args.verbose)
         print("Output")
         if args.gen_test:
-            rr = [[[y[0].transcoded(sanscript.DEVANAGARI) for y in va] if len(va) > 1 else va[0][0].transcoded(sanscript.DEVANAGARI) for va in vi] for vi in r]
+            rr = [[[y[0].transcoded(sanscript.DEVANAGARI) for y in va] if len(va) > 1
+                   else va[0][0].transcoded(sanscript.DEVANAGARI) for va in vi] for vi in r]
             print(f"prAtipadika[\"{str(pp)}\"] = {str(pp)}")
             print(f"viBakti[\"{str(pp)}\"] = [")
             for vi in rr:

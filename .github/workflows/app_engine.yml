@@ -5,6 +5,8 @@ name: App Engine
 on:
   release:
     types: [created]
+  push:
+    tags: v*
 
 jobs:
   app-engine:
@@ -18,6 +20,8 @@ jobs:
             cp -r docs/ui app_engine/
             cd app_engine/
             echo "gunicorn" > requirements.txt
+            echo "gensim" >> requirements.txt
+            echo "sentencepiece" >> requirements.txt
             echo "git+https://github.com/kmadathil/sanskrit_parser.git@${GITHUB_SHA}" >> requirements.txt
 
       - name: App engine action

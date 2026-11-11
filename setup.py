@@ -100,8 +100,11 @@ setup(
   # https://packaging.python.org/en/latest/requirements.html
   install_requires=['indic_transliteration!=1.9.5,!=1.9.6', 'lxml', 'networkx', 'tinydb',
                     'six', 'flask', 'flask_restx', 'flask_cors',
-                    'jsonpickle', 'sanskrit_util', 'sqlalchemy<1.4',
-                    'pydot', 'pandas', 'xlrd', 'importlib_resources'],
+                    'jsonpickle', 'sanskrit_util', 'sqlalchemy>=1.4',
+                    'pydot', 'pandas', 'xlrd', 'importlib_resources',
+                    # Remove when https://github.com/python-restx/flask-restx/issues/460 is fixed
+                    'werkzeug==2.2.3'
+                    ],
 
   # List additional groups of dependencies here (e.g. development
   # dependencies). You can install these using the following syntax,

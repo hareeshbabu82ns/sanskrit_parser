@@ -7,7 +7,7 @@ from os.path import dirname, basename, splitext, join
 from argparse import ArgumentParser
 import logging
 from sanskrit_parser import Parser
-from indic_transliteration.sanscript import SCHEMES
+from indic_transliteration import sanscript
 from sanskrit_parser.base.sanskrit_base import SanskritNormalizedString
 from sanskrit_parser.base.sanskrit_base import outputctx
 from sanskrit_parser.parser.sandhi_analyzer import LexicalSandhiAnalyzer
@@ -57,7 +57,7 @@ def vakya(argv=None):
     logger.info(f"Input String: {args.data}")
     parser = Parser(input_encoding=args.input_encoding,
                     strict_io=args.strict_io,
-                    output_encoding="SLP1",
+                    output_encoding=sanscript.SLP1,
                     replace_ending_visarga=None,
                     score=args.score,
                     split_above=args.split_above,
@@ -145,7 +145,7 @@ def sandhi(argv=None):
     logger.info(f"Input String: {args.data}")
     parser = Parser(input_encoding=args.input_encoding,
                     strict_io=args.strict_io,
-                    output_encoding="SLP1",
+                    output_encoding=sanscript.SLP1,
                     replace_ending_visarga=None,
                     score=args.score,
                     lexical_lookup=args.lexical_lookup)
@@ -247,6 +247,14 @@ def cmd_line():
     args, rest = parser.parse_known_args()
 
     # Logging
+    # In a regular app, we would let propagate handle everything
+    # Here, we just turn on the default loggers for the library
+    # First we disable the root logger handlers
+    rootlogger = logging.getLogger()
+    for h in rootlogger.handlers:
+        rootlogger.removeHandler(h)
+    rootlogger.addHandler(logging.NullHandler())
+    # Now we enable the console and possibly the file logger
     enable_console_logger(level=logging.INFO)
     if args.debug:
         enable_file_logger(level=logging.DEBUG)
