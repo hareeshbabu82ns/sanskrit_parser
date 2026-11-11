@@ -51,15 +51,16 @@ Command line usage
 import pickle
 import sqlite3
 import logging
+import struct
 from collections import namedtuple
-from functools import lru_cache
+import marisa_trie
 
 from sanskrit_parser.base.sanskrit_base import SanskritImmutableString
 from sanskrit_parser.util.lexical_lookup import LexicalLookup
 from sanskrit_parser.util.inriatagmapper import inriaTagMapper
 from sanskrit_parser.util.data_manager import data_file_path
 
-_db = namedtuple('_db', ['db_file', 'tags', 'stems', 'buf'])
+_db = namedtuple('_db', ['trie', 'tags', 'stems'])
 
 
 class InriaXMLWrapper(LexicalLookup):
@@ -91,63 +92,47 @@ class InriaXMLWrapper(LexicalLookup):
     the list of stems and tags loaded from the pickle file
     '''
 
-    def __init__(self, logger=None):
-        self.pickle_file = "inria_forms.pickle"
-        self.logger = logger or logging.getLogger(__name__)
-        db_file = data_file_path("inria_forms_pos.db")
-        pkl_path = data_file_path("inria_stems_tags_buf.pkl")
-        self.db = self._load_db(db_file, pkl_path)
+    packer = struct.Struct("<h")
 
-    @staticmethod
-    def _load_db(db_file, pkl_path):
+    def __init__(self, logger=None):
+        self.logger = logger or logging.getLogger(__name__)
+
+        pkl_path = data_file_path("inria_stems_tags.pkl")
         with open(pkl_path, 'rb') as f:
             stems = pickle.load(f)
             tags = pickle.load(f)
-            buf = f.read()
-        db = _db(db_file, tags, stems, buf)
-        return db
+
+        trie_file = data_file_path("inria_db.marisa")
+        self.trie = marisa_trie.BytesTrie()
+        self.trie.load(trie_file)
+        self.db = _db(self.trie, tags, stems)
+        
 
     def _get_tags(self, word):
         db = self.db
-        conn = sqlite3.connect(db.db_file)
-        cursor = conn.cursor()
-        res = cursor.execute('SELECT * FROM forms WHERE form=?', (word,)).fetchone()
-        if res is None:
+        encoded_tags = self.trie.get(word, None)
+        if encoded_tags is None:
             return None
-        pos = res[1]
-        tag_index_list = pickle.loads(db.buf[pos:])
         tags = []
-        for tag_index in tag_index_list:
-            tags.append(self._decode_tags(tag_index, db.tags, db.stems))
+        for entry in encoded_tags:
+            tags.append(self._decode_tags(entry, db.tags, db.stems))
         return tags
 
     @staticmethod
-    def _decode_tags(tag_index, tags, stems):
-        t = [tags[x] for x in tag_index[1]]
-        stem = stems[tag_index[0]]
+    def _decode_tags(entry, tags, stems):
+        t = [tags[x] for x in entry[2:]]
+        stem_index = InriaXMLWrapper.packer.unpack(entry[:2])[0]
+        stem = stems[stem_index]
         return (stem, set(t))
 
-    @lru_cache(maxsize=50000)
-    def _valid_cached(self, word):
-        """Cached version of valid check"""
-        conn = sqlite3.connect(self.db.db_file)
-        cursor = conn.cursor()
-        res = cursor.execute('SELECT COUNT(1) FROM forms WHERE form = ?', (word,)).fetchone()
-        return res[0] > 0
-
     def valid(self, word):
-        return self._valid_cached(word)
+        return word in self.trie
 
-    @lru_cache(maxsize=50000)
-    def _get_tags_cached(self, word, tmap):
-        """Cached version of get_tags for performance"""
+    def get_tags(self, word, tmap=True):
         tags = self._get_tags(word)
         if tmap and (tags is not None):
             tags = inriaTagMapper(tags)
         return tags
-
-    def get_tags(self, word, tmap=True):
-        return self._get_tags_cached(word, tmap)
 
 
 if __name__ == "__main__":

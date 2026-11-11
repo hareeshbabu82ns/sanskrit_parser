@@ -81,6 +81,8 @@ setup(
     'Programming Language :: Python :: 3',
     'Programming Language :: Python :: 3.7',
     'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.11',
   ],
 
   # What does your project relate to?
@@ -101,9 +103,9 @@ setup(
   install_requires=['indic_transliteration!=1.9.5,!=1.9.6', 'lxml', 'networkx', 'tinydb',
                     'six', 'flask', 'flask_restx', 'flask_cors',
                     'jsonpickle', 'sanskrit_util', 'sqlalchemy>=1.4',
-                    'pydot', 'pandas', 'xlrd', 'importlib_resources',
+                    'pydot', 'pandas', 'xlrd', 'importlib_resources', "marisa_trie",
                     # Remove when https://github.com/python-restx/flask-restx/issues/460 is fixed
-                    'werkzeug==2.2.3'
+                    'werkzeug==3.1.6'
                     ],
 
   # List additional groups of dependencies here (e.g. development
